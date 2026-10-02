@@ -90,8 +90,8 @@ input[type=color]{width:28px;height:24px;padding:0;border:1px solid #666;border-
 <div id="hud"></div>
 <input id="file" type="file" accept="image/*,video/*" multiple hidden>
 <dialog id="auth">
-<div id="aLogin"><p>Your diary text is locked with your password, so only you can read it. Photos and videos can be reviewed by the site owner.</p>
-<label>Email<input id="aEmail" type="email" autocomplete="email"></label>
+<div id="aLogin"><p>welcome to your diary!</p>
+<label>Username<input id="aUser" type="text" autocomplete="username"></label>
 <label>Password<input id="aPw" type="password" autocomplete="current-password"></label>
 <button id="aIn">log in</button><button id="aUp">create account</button></div>
 <div id="aOpen" hidden><p>Enter your password to open your diary.</p>
@@ -312,19 +312,37 @@ async function start(){
   z=Math.max(z,...S.days.flatMap(d=>(d.items||[]).map(i=>i.z||0)));if(!S.days.length)S.days.push(newDay());
   $('#adm').hidden=!prof.is_admin;A('auth').close();render('all');status('saved to your account');
 }
-A('aIn').onclick=async()=>{
-  am('Logging in…');const pw=A('aPw').value;
-  const{error}=await sb.auth.signInWithPassword({email:A('aEmail').value.trim(),password:pw});
-  if(error)return am(error.message,1);
-  if(await route())unlock(pw);
+// supabase wants an email, so the username gets turned into a fake one
+// and the password into a long hash. that way any length works for the user.
+async function creds(user, pw){
+  const name = user.trim().toLowerCase();
+  const hex = u => Array.from(new Uint8Array(u), b => b.toString(16).padStart(2, '0')).join('');
+  const id = hex(await crypto.subtle.digest('SHA-256', enc.encode('name:' + name))).slice(0, 32);
+  const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({name: 'PBKDF2', salt: enc.encode('login:' + name), iterations: 200000, hash: 'SHA-256'}, key, 256);
+  return {email: id + '@diary.app', password: hex(bits), name};
+}
+A('aIn').onclick = async () => {
+  const pw = A('aPw').value;
+  if(!A('aUser').value.trim() || !pw) return am('Type a username and a password.', 1);
+  am('Logging in…');
+  const c = await creds(A('aUser').value, pw);
+  const {error} = await sb.auth.signInWithPassword({email: c.email, password: c.password});
+  if(error) return am('Wrong username or password.', 1);
+  if(await route()) unlock(pw);
 };
-A('aUp').onclick=async()=>{
-  const pw=A('aPw').value;if(pw.length<8)return am('Use a password with at least 8 characters.',1);
+A('aUp').onclick = async () => {
+  const pw = A('aPw').value;
+  if(!A('aUser').value.trim() || !pw) return am('Type a username and a password.', 1);
   am('Creating account…');
-  const{data,error}=await sb.auth.signUp({email:A('aEmail').value.trim(),password:pw});
-  if(error)return am(error.message,1);
-  if(!data.session)return am('Check your email for the confirmation link, then log in.');
-  if(await route())unlock(pw);
+  const c = await creds(A('aUser').value, pw);
+  const {data, error} = await sb.auth.signUp({email: c.email, password: c.password, options: {data: {username: c.name}}});
+  if(error) return am(/already/i.test(error.message) ? 'That username is taken.' : error.message, 1);
+  if(!data.session){
+    const r = await sb.auth.signInWithPassword({email: c.email, password: c.password});
+    if(r.error) return am('Turn off "Confirm email" in your Supabase settings, then try again.', 1);
+  }
+  if(await route()) unlock(pw);
 };
 A('aOpenBtn').onclick=()=>unlock(A('aPw2').value);
 A('aOut').onclick=$('#gear').onclick;
