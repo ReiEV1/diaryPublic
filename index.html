@@ -43,8 +43,7 @@ footer{position:fixed;left:14px;bottom:8px;font-size:14px;opacity:.8;text-shadow
 </main>
 <footer><span id="ht">♥</span> made with love by rei</footer>
 <script>
-// ====== EDIT THESE ======
-const EXE_PATH = 'site/MyDiary_Setup_1_1_0.exe';   // the exe lives inside the repo, next to the site
+const EXE_PATH = 'https://github.com/ReiEV1/diaryPublic/releases/download/v1.1.0/MyDiary_Setup_1_1_0.exe';
 const VERSION  = 'v1.1.0';
 const CHANGELOG = [
   {name:'v1.1.0', date:'2026-10-02', body:'what changed goes here.'}
@@ -53,7 +52,6 @@ const STUFF=[
  {t:'my little desktop diary',x:6,y:14,r:-4},
  {t:'photos, notes, a widget',x:8,y:72,r:3}
 ];
-// ========================
 const $=s=>document.querySelector(s);
 $('#dl').href=EXE_PATH;
 $('#ver').textContent=VERSION;
