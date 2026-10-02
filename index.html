@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>my diary</title><link rel="icon" href="assets/icon.png">
+<title>my diary</title><link rel="icon" href="site/assets/icon.png">
 <style>
-@font-face{font-family:Caveat;font-weight:600;src:url(assets/fonts/caveat-latin-600-normal.woff2) format("woff2")}
-@font-face{font-family:Kalam;font-weight:300;src:url(assets/fonts/kalam-latin-300-normal.woff2) format("woff2")}
+@font-face{font-family:Caveat;font-weight:600;src:url(site/assets/fonts/caveat-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:Kalam;font-weight:300;src:url(site/assets/fonts/kalam-latin-300-normal.woff2) format("woff2")}
 :root{--l:#e9e9e9;--heart:#ff6b8b}
 *{box-sizing:border-box}
 body{margin:0;background:#000;color:var(--l);font:300 18px/1.5 Kalam,'Comic Sans MS',cursive}
@@ -23,7 +23,6 @@ h1{font:600 clamp(60px,10vw,100px)/1 Caveat,cursive;margin:6px 0 20px}
 .rel p{margin:4px 0 0;white-space:pre-wrap;font-size:16px}
 #stuff{position:fixed;inset:0;pointer-events:none;z-index:1}
 #stuff>*{position:absolute;rotate:var(--r)}
-#stuff img{display:block;border-radius:12px}
 #stuff .n{background:#f1efe6;color:#111;font:600 22px/1.2 Caveat,cursive;padding:10px 14px;border-radius:6px 6px 14px 6px;box-shadow:0 8px 18px #0008}
 footer{position:fixed;left:14px;bottom:8px;font-size:14px;opacity:.8;text-shadow:0 0 6px #000}
 #ht{color:var(--heart);display:inline-block;animation:beat 2.6s infinite}
@@ -31,36 +30,37 @@ footer{position:fixed;left:14px;bottom:8px;font-size:14px;opacity:.8;text-shadow
 @media(max-width:800px){main{grid-template-columns:1fr;padding-bottom:60px}#log{max-height:none}#stuff{display:none}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body>
-<video id="bgv" src="assets/bg.mp4" muted loop autoplay playsinline></video>
+<video id="bgv" src="site/assets/chainsaw-man-girls-moewalls-com.mp4" muted loop autoplay playsinline></video>
 <div id="stuff"></div>
 <main>
  <div class="hero">
-  <img src="assets/icon.png" alt="">
+  <img src="site/assets/icon.png" alt="">
   <h1>my diary</h1>
-  <a class="dl" id="dl" href="#">download <span id="ver"></span></a>
+  <a class="dl" id="dl" download>download <span id="ver"></span></a>
   <div class="small">windows only. if it says "protected your pc", click More info, then Run anyway.</div>
  </div>
  <aside id="log"><h2>update log</h2><div id="rels"></div></aside>
 </main>
 <footer><span id="ht">♥</span> made with love by rei</footer>
 <script>
-const REPO='ReiEV1/diaryPublic', FILE='MyDiary-Setup.exe';
+// ====== EDIT THESE ======
+const EXE_PATH = 'site/MyDiary_Setup_1_1_0.exe';   // the exe lives inside the repo, next to the site
+const VERSION  = 'v1.1.0';
+const CHANGELOG = [
+  {name:'v1.1.0', date:'2026-10-02', body:'what changed goes here.'}
+];
 const STUFF=[
  {t:'my little desktop diary',x:6,y:14,r:-4},
  {t:'photos, notes, a widget',x:8,y:72,r:3}
 ];
-const $=s=>document.querySelector(s),ok=!REPO.startsWith('YOUR');
-$('#dl').href=ok?`https://github.com/${REPO}/releases/latest/download/${FILE}`:'#';
-STUFF.forEach(o=>{const e=document.createElement(o.img?'img':'div');
- if(o.img){e.src=o.img;e.alt='';e.style.width=(o.w||120)+'px'}else{e.className='n';e.textContent=o.t}
+// ========================
+const $=s=>document.querySelector(s);
+$('#dl').href=EXE_PATH;
+$('#ver').textContent=VERSION;
+STUFF.forEach(o=>{const e=document.createElement('div');e.className='n';e.textContent=o.t;
  e.style.cssText+=`left:${o.x}%;top:${o.y}%;--r:${o.r||0}deg`;$('#stuff').append(e)});
-function show(list){
- if(!list.length){$('#rels').textContent='nothing yet. first version coming soon.';return}
- $('#ver').textContent=list[0].tag_name;
- list.forEach(r=>{const d=document.createElement('div');d.className='rel';
-  const h=document.createElement('h3');h.textContent=r.name||r.tag_name;
-  const t=document.createElement('time');t.textContent=' '+new Date(r.published_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-  const p=document.createElement('p');p.textContent=r.body||'';d.append(h,t,p);$('#rels').append(d)})}
-if(ok)fetch(`https://api.github.com/repos/${REPO}/releases`).then(r=>r.json()).then(l=>show(Array.isArray(l)?l:[])).catch(()=>show([]));
-else show([{tag_name:'v1.0.0',name:'v1.0.0 (sample)',published_at:new Date(),body:'this fills in by itself from your GitHub releases.\nwrite what changed in the release notes.'}]);
+CHANGELOG.forEach(r=>{const d=document.createElement('div');d.className='rel';
+ const h=document.createElement('h3');h.textContent=r.name;
+ const t=document.createElement('time');t.textContent=' '+r.date;
+ const p=document.createElement('p');p.textContent=r.body;d.append(h,t,p);$('#rels').append(d)});
 </script></body></html>
