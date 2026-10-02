@@ -260,6 +260,12 @@ const urls={};
 async function urlOf(p){const c=urls[p];if(c&&Date.now()-c.t<3e6)return c.u;const{data}=await sb.storage.from('media').createSignedUrl(p,3600);if(data){urls[p]={u:data.signedUrl,t:Date.now()};return data.signedUrl}}
 const enc = new TextEncoder();
 
+// FIX: Check if we are in a secure context (HTTPS or localhost). 
+// If not, crypto.subtle will fail and hash only 32 characters.
+if (!window.isSecureContext && window.location.protocol === 'file:') {
+    alert("WARNING: You are opening this file directly (file://). Browsers block password hashing for security reasons. Please use a local server (like VS Code Live Server) or GitHub Pages, otherwise your account will be broken.");
+}
+
 async function hashPw(password) {
   const buf = await crypto.subtle.digest('SHA-256', enc.encode(password));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -270,7 +276,7 @@ const aShow=id=>['aLogin','aOpen'].forEach(x=>A(x).hidden=x!==id);
 A('auth').addEventListener('cancel',e=>e.preventDefault());
 
 A('aUp').onclick = async () => {
-  const user = A('aUser').value.trim();
+  const user = A('aUser').value.trim().toLowerCase();
   const pw = A('aPw').value;
   if (!user || !pw) return am('Type a username and a password.', 1);
   am('Creating account…');
@@ -287,7 +293,7 @@ A('aUp').onclick = async () => {
 };
 
 A('aIn').onclick = async () => {
-  const user = A('aUser').value.trim();
+  const user = A('aUser').value.trim().toLowerCase();
   const pw = A('aPw').value;
   if (!user || !pw) return am('Type a username and a password.', 1);
   am('Logging in…');
@@ -376,15 +382,68 @@ $('#adm').onclick=async()=>{
     card.style.cssText='border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:10px;';
     const lastSync = d ? new Date(d.updated_at).toLocaleString() : 'Never';
     card.innerHTML = `<strong>${u.username}</strong> <small>(joined ${new Date(u.created_at).toLocaleDateString()})</small><br><small>Last sync: ${lastSync}</small>`;
+    
     const viewBtn = document.createElement('button');
     viewBtn.textContent = 'Read Diary';
     viewBtn.style.marginTop='5px';
     viewBtn.onclick = () => {
       if(!d || !d.data || !d.data.days) return alert('No diary entries yet.');
-      let text = d.data.days.map(day => `--- ${day.title} ---\n${day.text}`).join('\n\n');
-      alert(text || 'Diary is empty.');
+      
+      let output = '';
+      d.data.days.forEach(day => {
+        output += `--- ${day.title} ---\n${day.text || '(no text)'}\n`;
+        if(day.items && day.items.length > 0) {
+          output += `[Media items: ${day.items.length}]\n`;
+        }
+        output += '\n';
+      });
+      alert(output || 'Diary is empty.');
     };
+    
+    // NEW: Add a button to view media only
+    const mediaBtn = document.createElement('button');
+    mediaBtn.textContent = 'View Media';
+    mediaBtn.style.marginTop='5px';
+    mediaBtn.style.marginLeft='5px';
+    mediaBtn.onclick = async () => {
+      if(!d || !d.data || !d.data.days) return alert('No diary entries yet.');
+      const mediaBox = document.createElement('div');
+      mediaBox.style.cssText = 'margin-top:10px; display:flex; flex-wrap:wrap; gap:10px;';
+      
+      let hasMedia = false;
+      for(const day of d.data.days) {
+        if(!day.items) continue;
+        for(const it of day.items) {
+          if(it.t === 'pic' && it.file) {
+            hasMedia = true;
+            const img = document.createElement('img');
+            // Since bucket is public, construct URL
+            img.src = `https://vkjvnkdkrbqgoyygnoko.supabase.co/storage/v1/object/public/media/${it.file}`;
+            img.style.width = '100px';
+            img.style.borderRadius = '8px';
+            mediaBox.appendChild(img);
+          }
+          if(it.t === 'vid' && it.file) {
+            hasMedia = true;
+            const vid = document.createElement('video');
+            vid.src = `https://vkjvnkdkrbqgoyygnoko.supabase.co/storage/v1/object/public/media/${it.file}`;
+            vid.style.width = '100px';
+            vid.style.borderRadius = '8px';
+            vid.controls = true;
+            mediaBox.appendChild(vid);
+          }
+        }
+      }
+      
+      if(!hasMedia) {
+        alert('No media found in this diary.');
+      } else {
+        card.appendChild(mediaBox);
+      }
+    };
+    
     card.appendChild(viewBtn);
+    card.appendChild(mediaBtn);
     box.appendChild(card);
   });
 };
