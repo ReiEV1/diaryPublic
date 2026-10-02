@@ -35,9 +35,8 @@ textarea::placeholder{color:#555}
 [data-h=rs]{right:-11px;bottom:-11px;cursor:nwse-resize}
 [data-h=x]{top:-11px;right:-11px}
 #hud{position:fixed;left:14px;bottom:10px;font-size:13px;color:#888}
-#gear,#adm,#tosBtn{position:fixed;right:14px;top:12px;background:#111;color:#bbb;border:1px solid #444;border-radius:12px;padding:4px 12px}
+#gear,#adm{position:fixed;right:14px;top:12px;background:#111;color:#bbb;border:1px solid #444;border-radius:12px;padding:4px 12px}
 #adm{right:auto;left:14px;display:none;}
-#tosBtn{right:100px;font-size:12px;padding:4px 8px;}
 dialog{background:#111;color:var(--l);border:2px solid var(--l);border-radius:22px;padding:22px;width:min(380px,92vw)}
 dialog::backdrop{background:#000c}
 dialog label{display:block;margin:0 0 12px;font-size:14px}
@@ -86,7 +85,6 @@ input[type=color]{width:28px;height:24px;padding:0;border:1px solid #666;border-
 <div id="spot"></div>
 <button id="gear">log out</button>
 <button id="adm">admin panel</button>
-<button id="tosBtn">TOS</button>
 <label id="fc">frame<input type="color" id="fbg" aria-label="frame color"></label>
 <div id="hud"></div>
 <input id="file" type="file" accept="image/*,video/*" multiple hidden>
@@ -102,7 +100,6 @@ input[type=color]{width:28px;height:24px;padding:0;border:1px solid #666;border-
 <p id="aMsg"></p></dialog>
 
 <dialog id="admD"><div id="admBox"></div><button id="admClose">close</button></dialog>
-<dialog id="tosD"><h3>Terms of Service</h3><p>1. This is a public diary. Do not share sensitive information. 2. The owner of this site can read your entries. 3. Have fun!</p><button id="tosClose">I understand</button></dialog>
 
 <script>
 const $=s=>document.querySelector(s), frame=$('#frame');
@@ -365,8 +362,6 @@ async function sync(){
 }
 
 $('#fbg').oninput=e=>{S.frameBg=e.target.value;paint(frame,S.frameBg,'#000000');save()};
-$('#tosBtn').onclick=()=>$('#tosD').showModal();
-$('#tosClose').onclick=()=>$('#tosD').close();
 
 /* --- ADMIN PANEL --- */
 $('#adm').onclick=async()=>{
