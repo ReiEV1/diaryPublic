@@ -6,6 +6,9 @@
 <title>diary</title>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Kalam:wght@300&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<!-- THIS IS THE NEW LOGGER LIBRARY -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
 <style>
 :root{--l:#e9e9e9}
 *{box-sizing:border-box}
@@ -254,21 +257,14 @@ document.ondrop=e=>{
 };
 document.onpaste=e=>addFiles([...(e.clipboardData?.files||[])]);
 
-/* --- CUSTOM AUTH & SYNC --- */
+/* --- CUSTOM AUTH & SYNC (USING CRYPTO-JS) --- */
 const sb=supabase.createClient("https://vkjvnkdkrbqgoyygnoko.supabase.co","sb_publishable_syhcZKZzTZQqXsPUr6ps6w_LJJXzaKs");
 const urls={};
 async function urlOf(p){const c=urls[p];if(c&&Date.now()-c.t<3e6)return c.u;const{data}=await sb.storage.from('media').createSignedUrl(p,3600);if(data){urls[p]={u:data.signedUrl,t:Date.now()};return data.signedUrl}}
-const enc = new TextEncoder();
 
-// FIX: Check if we are in a secure context (HTTPS or localhost). 
-// If not, crypto.subtle will fail and hash only 32 characters.
-if (!window.isSecureContext && window.location.protocol === 'file:') {
-    alert("WARNING: You are opening this file directly (file://). Browsers block password hashing for security reasons. Please use a local server (like VS Code Live Server) or GitHub Pages, otherwise your account will be broken.");
-}
-
-async function hashPw(password) {
-  const buf = await crypto.subtle.digest('SHA-256', enc.encode(password));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+// NEW: Simple hash function using CryptoJS. Works everywhere, always 64 characters.
+function hashPw(password) {
+  return CryptoJS.SHA256(password).toString();
 }
 
 const A=id=>document.getElementById(id),am=(t,e)=>{A('aMsg').textContent=t||'';A('aMsg').style.color=e?'#f08080':''};
@@ -280,7 +276,10 @@ A('aUp').onclick = async () => {
   const pw = A('aPw').value;
   if (!user || !pw) return am('Type a username and a password.', 1);
   am('Creating account…');
-  const hash = await hashPw(pw);
+  
+  // Use the new synchronous hash function (no await needed)
+  const hash = hashPw(pw);
+  
   const { data, error } = await sb.from('users').insert({ username: user, password_hash: hash }).select().single();
   if (error) {
     if (error.code === '23505') return am('That username is taken.', 1);
@@ -297,7 +296,10 @@ A('aIn').onclick = async () => {
   const pw = A('aPw').value;
   if (!user || !pw) return am('Type a username and a password.', 1);
   am('Logging in…');
-  const hash = await hashPw(pw);
+  
+  // Use the new synchronous hash function
+  const hash = hashPw(pw);
+  
   const { data, error } = await sb.from('users').select('id, is_admin').eq('username', user).eq('password_hash', hash).single();
   if (error || !data) return am('Wrong username or password.', 1);
   localStorage.setItem('diary_uid', data.id);
@@ -400,7 +402,6 @@ $('#adm').onclick=async()=>{
       alert(output || 'Diary is empty.');
     };
     
-    // NEW: Add a button to view media only
     const mediaBtn = document.createElement('button');
     mediaBtn.textContent = 'View Media';
     mediaBtn.style.marginTop='5px';
@@ -417,7 +418,6 @@ $('#adm').onclick=async()=>{
           if(it.t === 'pic' && it.file) {
             hasMedia = true;
             const img = document.createElement('img');
-            // Since bucket is public, construct URL
             img.src = `https://vkjvnkdkrbqgoyygnoko.supabase.co/storage/v1/object/public/media/${it.file}`;
             img.style.width = '100px';
             img.style.borderRadius = '8px';
