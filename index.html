@@ -6,9 +6,6 @@
 <title>diary</title>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Kalam:wght@300&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<!-- THIS IS THE NEW LOGGER LIBRARY -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-
 <style>
 :root{--l:#e9e9e9}
 *{box-sizing:border-box}
@@ -104,7 +101,29 @@ input[type=color]{width:28px;height:24px;padding:0;border:1px solid #666;border-
 
 <dialog id="admD"><div id="admBox"></div><button id="admClose">close</button></dialog>
 
-<script>
+<script type="module">
+// --- FIREBASE INIT ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA1B8ws0Qkz0Lru-HCVTk2r2M45u_fgDXE",
+  authDomain: "diary-dd48b.firebaseapp.com",
+  projectId: "diary-dd48b",
+  storageBucket: "diary-dd48b.firebasestorage.app",
+  messagingSenderId: "510050372640",
+  appId: "1:510050372640:web:5d4baa29c3406cc3128045",
+  measurementId: "G-HE2122DM8W"
+};
+const fbApp = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDb = getFirestore(fbApp);
+
+// --- SUPABASE INIT (ONLY FOR FILES) ---
+const sb = supabase.createClient("https://vkjvnkdkrbqgoyygnoko.supabase.co", "sb_publishable_syhcZKZzTZQqXsPUr6ps6w_LJJXzaKs");
+const SUPABASE_PUBLIC_URL = "https://vkjvnkdkrbqgoyygnoko.supabase.co/storage/v1/object/public/media/";
+
 const $=s=>document.querySelector(s), frame=$('#frame');
 let S={days:[],trash:[],dirty:false,frameBg:'#000000',bgUrl:''}, z=10, busy=false, tm, cur=null, pend=null, uid, prof;
 const status=t=>$('#hud').textContent=t;
@@ -118,6 +137,7 @@ const vdb=async(m,k,v)=>{const d=await idb;if(!d)return;return new Promise(res=>
 const lum=h=>{const n=parseInt(h.slice(1),16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255};
 function paint(el,bg,def){bg=bg||def;el.style.background=bg;el.style.setProperty('--l',lum(bg)>.55?'#111':'#e9e9e9')}
 const pageOf=d=>[...frame.querySelectorAll('.page')].find(p=>p._d===d);
+const imgUrl = (file) => file.startsWith('http') ? file : SUPABASE_PUBLIC_URL + file;
 
 function render(anim){
   frame.innerHTML='';paint(frame,S.frameBg,'#000000');$('#fbg').value=S.frameBg||'#000000';
@@ -159,9 +179,9 @@ function mk(pg,d,it,fresh){
   let n;
   if(it.t=='vid'){
     const v=document.createElement('video');v.muted=v.loop=v.autoplay=v.playsInline=true;
-    (blobs[it.id]?Promise.resolve(blobs[it.id]):it.pend?vdb('get',it.id):Promise.resolve()).then(async b=>{v.src=b?URL.createObjectURL(b):await urlOf(it.file);v.play().catch(()=>{})});
+    (blobs[it.id]?Promise.resolve(blobs[it.id]):it.pend?vdb('get',it.id):Promise.resolve()).then(async b=>{v.src=b?URL.createObjectURL(b):imgUrl(it.file);v.play().catch(()=>{})});
     el.append(v);el.ondblclick=()=>v.paused?v.play():v.pause();
-  }else if(it.t=='pic'){const i=new Image();i.alt='';i.draggable=false;el.append(i);(it.data?Promise.resolve(it.data):urlOf(it.file)).then(u=>{if(u)i.src=u})}
+  }else if(it.t=='pic'){const i=new Image();i.alt='';i.draggable=false;el.append(i);(it.data?Promise.resolve(it.data):Promise.resolve(imgUrl(it.file))).then(u=>{if(u)i.src=u})}
   else{
     n=document.createElement('div');n.className='n';n.textContent=it.text;el.append(n);
     el.ondblclick=()=>{n.contentEditable=true;n.focus()};
@@ -257,16 +277,7 @@ document.ondrop=e=>{
 };
 document.onpaste=e=>addFiles([...(e.clipboardData?.files||[])]);
 
-/* --- CUSTOM AUTH & SYNC (USING CRYPTO-JS) --- */
-const sb=supabase.createClient("https://vkjvnkdkrbqgoyygnoko.supabase.co","sb_publishable_syhcZKZzTZQqXsPUr6ps6w_LJJXzaKs");
-const urls={};
-async function urlOf(p){const c=urls[p];if(c&&Date.now()-c.t<3e6)return c.u;const{data}=await sb.storage.from('media').createSignedUrl(p,3600);if(data){urls[p]={u:data.signedUrl,t:Date.now()};return data.signedUrl}}
-
-// NEW: Simple hash function using CryptoJS. Works everywhere, always 64 characters.
-function hashPw(password) {
-  return CryptoJS.SHA256(password).toString();
-}
-
+/* --- FIREBASE AUTH & SYNC --- */
 const A=id=>document.getElementById(id),am=(t,e)=>{A('aMsg').textContent=t||'';A('aMsg').style.color=e?'#f08080':''};
 const aShow=id=>['aLogin','aOpen'].forEach(x=>A(x).hidden=x!==id);
 A('auth').addEventListener('cancel',e=>e.preventDefault());
@@ -274,21 +285,18 @@ A('auth').addEventListener('cancel',e=>e.preventDefault());
 A('aUp').onclick = async () => {
   const user = A('aUser').value.trim().toLowerCase();
   const pw = A('aPw').value;
-  if (!user || !pw) return am('Type a username and a password.', 1);
+  if (!user || pw.length < 6) return am('Username required. Password must be at least 6 characters.', 1);
   am('Creating account…');
-  
-  // Use the new synchronous hash function (no await needed)
-  const hash = hashPw(pw);
-  
-  const { data, error } = await sb.from('users').insert({ username: user, password_hash: hash }).select().single();
-  if (error) {
-    if (error.code === '23505') return am('That username is taken.', 1);
-    return am(error.message, 1);
+  const fakeEmail = user + '@diary.app'; // Firebase requires email format
+  try {
+    const cred = await createUserWithEmailAndPassword(fbAuth, fakeEmail, pw);
+    uid = cred.user.uid;
+    await setDoc(doc(fbDb, "users", uid), { username: user, is_admin: false });
+    prof = { is_admin: false };
+    await start();
+  } catch(e) {
+    am(e.message.replace('Firebase: ', ''), 1);
   }
-  localStorage.setItem('diary_uid', data.id);
-  localStorage.setItem('diary_admin', data.is_admin || false);
-  uid = data.id; prof = { is_admin: data.is_admin || false };
-  await start();
 };
 
 A('aIn').onclick = async () => {
@@ -296,50 +304,44 @@ A('aIn').onclick = async () => {
   const pw = A('aPw').value;
   if (!user || !pw) return am('Type a username and a password.', 1);
   am('Logging in…');
-  
-  // Use the new synchronous hash function
-  const hash = hashPw(pw);
-  
-  const { data, error } = await sb.from('users').select('id, is_admin').eq('username', user).eq('password_hash', hash).single();
-  if (error || !data) return am('Wrong username or password.', 1);
-  localStorage.setItem('diary_uid', data.id);
-  localStorage.setItem('diary_admin', data.is_admin);
-  uid = data.id; prof = { is_admin: data.is_admin };
-  await start();
+  const fakeEmail = user + '@diary.app';
+  try {
+    const cred = await signInWithEmailAndPassword(fbAuth, fakeEmail, pw);
+    uid = cred.user.uid;
+    const pDoc = await getDoc(doc(fbDb, "users", uid));
+    prof = pDoc.exists() ? pDoc.data() : { is_admin: false };
+    await start();
+  } catch(e) {
+    am('Wrong username or password.', 1);
+  }
 };
 
 async function checkSession() {
-  const savedUid = localStorage.getItem('diary_uid');
-  if (savedUid) {
-    uid = savedUid;
-    prof = { is_admin: localStorage.getItem('diary_admin') === 'true' };
-    aShow('aOpen');
-    if(!A('auth').open) A('auth').showModal();
-  } else {
-    aShow('aLogin');
-    if(!A('auth').open) A('auth').showModal();
-  }
+  onAuthStateChanged(fbAuth, async (user) => {
+    if (user) {
+      uid = user.uid;
+      const pDoc = await getDoc(doc(fbDb, "users", uid));
+      prof = pDoc.exists() ? pDoc.data() : { is_admin: false };
+      aShow('aOpen');
+      if(!A('auth').open) A('auth').showModal();
+    } else {
+      aShow('aLogin');
+      if(!A('auth').open) A('auth').showModal();
+    }
+  });
 }
 
-A('aOpenBtn').onclick = async () => {
-  A('auth').close();
-  await start();
-};
-
-A('aOut').onclick = $('#gear').onclick = () => {
-  localStorage.removeItem('diary_uid');
-  localStorage.removeItem('diary_admin');
-  location.reload();
-};
+A('aOpenBtn').onclick = async () => { A('auth').close(); await start(); };
+A('aOut').onclick = $('#gear').onclick = () => { signOut(fbAuth); location.reload(); };
 
 async function start(){
   am('');A('aPw').value='';
-  const{data}=await sb.from('diaries').select('data').eq('user_id',uid).maybeSingle();
-  if(data&&data.data){S={...S,days:data.data.days||[],frameBg:data.data.frameBg||'#000000',bgUrl:data.data.bgUrl||'',ts:data.data.ts||0}}
+  const dDoc = await getDoc(doc(fbDb, "diaries", uid));
+  if(dDoc.exists()){ const d = dDoc.data(); S={...S,days:d.days||[],frameBg:d.frameBg||'#000000',bgUrl:d.bgUrl||'',ts:d.ts||0} }
   S.days=(S.days||[]).map(d=>({title:d.title||'day',text:d.text||'',items:d.items||[],bg:d.bg}));
   z=Math.max(z,...S.days.flatMap(d=>(d.items||[]).map(i=>i.z||0)));if(!S.days.length)S.days.push(newDay());
   $('#adm').style.display = prof.is_admin ? 'block' : 'none';
-  A('auth').close();render('all');status('saved to your account');
+  A('auth').close();render('all');status('saved');
 }
 
 function later(){clearTimeout(tm);tm=setTimeout(sync,1500)}
@@ -347,24 +349,26 @@ async function sync(){
   if(!uid)return;
   if(busy)return later();
   busy=true;status('syncing…');
-  const st=sb.storage.from('media');
   try{
+    // Upload images/videos to SUPABASE Storage
     for(const d of S.days)for(const it of d.items)if(it.data && it.data.startsWith('data:')){
       const b=await(await fetch(it.data)).blob();
-      const{error}=await st.upload(it.file,b,{upsert:true,contentType:'image/jpeg'});if(error)throw error;delete it.data;
+      const { error } = await sb.storage.from('media').upload(it.file, b, { upsert: true });
+      if(error) throw error;
+      delete it.data;
     }
     for(const d of S.days)for(const it of d.items)if(it.pend){
       const b=blobs[it.id]||await vdb('get',it.id);
-      if(b){status('uploading video…');const{error}=await st.upload(it.file,b,{upsert:true,contentType:b.type||'video/mp4'});if(error)throw error}
+      if(b){ status('uploading video…'); const { error } = await sb.storage.from('media').upload(it.file, b, { upsert: true }); if(error) throw error; }
       delete it.pend;vdb('del',it.id);delete blobs[it.id];
     }
-    if(S.trash.length){await st.remove(S.trash);S.trash=[]}
+    // Delete trashed items from Supabase Storage
+    if(S.trash.length){ for(const path of S.trash){ try{ await sb.storage.from('media').remove([path]) }catch(e){} } S.trash=[]; }
     
-    // Save plain text (no encryption)
+    // Save text to Firestore
     const payload = { days:S.days, frameBg:S.frameBg, bgUrl:S.bgUrl, ts:S.ts };
-    const{error}=await sb.from('diaries').upsert({user_id:uid,data:payload,updated_at:new Date().toISOString()});
-    if(error)throw error;
-    S.dirty=false;status('saved to your account');
+    await setDoc(doc(fbDb, "diaries", uid), payload);
+    S.dirty=false;status('saved');
   }catch(e){status('sync failed ('+(e.message||e)+')')}
   busy=false;
 }
@@ -374,72 +378,48 @@ $('#fbg').oninput=e=>{S.frameBg=e.target.value;paint(frame,S.frameBg,'#000000');
 /* --- ADMIN PANEL --- */
 $('#adm').onclick=async()=>{
   const box=$('#admBox');box.innerHTML='<p>Loading users...</p>';$('#admD').showModal();
-  const {data:users}=await sb.from('users').select('id, username, created_at');
-  const {data:diaries}=await sb.from('diaries').select('user_id, data, updated_at');
+  const usersSnap = await getDocs(collection(fbDb, "users"));
+  const diariesSnap = await getDocs(collection(fbDb, "diaries"));
   
   box.innerHTML='';
-  users.forEach(u => {
-    const d = diaries.find(d => d.user_id === u.id);
+  usersSnap.forEach(uDoc => {
+    const u = uDoc.data();
+    const dDoc = diariesSnap.docs.find(d => d.id === uDoc.id);
+    const d = dDoc ? dDoc.data() : null;
+    
     const card = document.createElement('div');
     card.style.cssText='border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:10px;';
-    const lastSync = d ? new Date(d.updated_at).toLocaleString() : 'Never';
-    card.innerHTML = `<strong>${u.username}</strong> <small>(joined ${new Date(u.created_at).toLocaleDateString()})</small><br><small>Last sync: ${lastSync}</small>`;
+    const lastSync = d && d.ts ? new Date(d.ts).toLocaleString() : 'Never';
+    card.innerHTML = `<strong>${u.username}</strong><br><small>Last sync: ${lastSync}</small>`;
     
     const viewBtn = document.createElement('button');
     viewBtn.textContent = 'Read Diary';
     viewBtn.style.marginTop='5px';
     viewBtn.onclick = () => {
-      if(!d || !d.data || !d.data.days) return alert('No diary entries yet.');
-      
+      if(!d || !d.days) return alert('No diary entries yet.');
       let output = '';
-      d.data.days.forEach(day => {
-        output += `--- ${day.title} ---\n${day.text || '(no text)'}\n`;
-        if(day.items && day.items.length > 0) {
-          output += `[Media items: ${day.items.length}]\n`;
-        }
-        output += '\n';
-      });
+      d.days.forEach(day => { output += `--- ${day.title} ---\n${day.text || '(no text)'}\n[Items: ${day.items ? day.items.length : 0}]\n\n`; });
       alert(output || 'Diary is empty.');
     };
-    
+
     const mediaBtn = document.createElement('button');
     mediaBtn.textContent = 'View Media';
     mediaBtn.style.marginTop='5px';
     mediaBtn.style.marginLeft='5px';
-    mediaBtn.onclick = async () => {
-      if(!d || !d.data || !d.data.days) return alert('No diary entries yet.');
+    mediaBtn.onclick = () => {
+      if(!d || !d.days) return alert('No diary entries yet.');
       const mediaBox = document.createElement('div');
       mediaBox.style.cssText = 'margin-top:10px; display:flex; flex-wrap:wrap; gap:10px;';
-      
       let hasMedia = false;
-      for(const day of d.data.days) {
-        if(!day.items) continue;
-        for(const it of day.items) {
-          if(it.t === 'pic' && it.file) {
-            hasMedia = true;
-            const img = document.createElement('img');
-            img.src = `https://vkjvnkdkrbqgoyygnoko.supabase.co/storage/v1/object/public/media/${it.file}`;
-            img.style.width = '100px';
-            img.style.borderRadius = '8px';
-            mediaBox.appendChild(img);
-          }
-          if(it.t === 'vid' && it.file) {
-            hasMedia = true;
-            const vid = document.createElement('video');
-            vid.src = `https://vkjvnkdkrbqgoyygnoko.supabase.co/storage/v1/object/public/media/${it.file}`;
-            vid.style.width = '100px';
-            vid.style.borderRadius = '8px';
-            vid.controls = true;
-            mediaBox.appendChild(vid);
-          }
-        }
-      }
-      
-      if(!hasMedia) {
-        alert('No media found in this diary.');
-      } else {
-        card.appendChild(mediaBox);
-      }
+      d.days.forEach(day => {
+        if(!day.items) return;
+        day.items.forEach(it => {
+          if(it.t === 'pic' && it.file) { hasMedia = true; const img = document.createElement('img'); img.src = imgUrl(it.file); img.style.width = '100px'; img.style.borderRadius = '8px'; mediaBox.appendChild(img); }
+          if(it.t === 'vid' && it.file) { hasMedia = true; const vid = document.createElement('video'); vid.src = imgUrl(it.file); vid.style.width = '100px'; vid.style.borderRadius = '8px'; vid.controls = true; mediaBox.appendChild(vid); }
+        });
+      });
+      if(!hasMedia) alert('No media found.');
+      else card.appendChild(mediaBox);
     };
     
     card.appendChild(viewBtn);
